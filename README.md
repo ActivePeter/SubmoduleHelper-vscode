@@ -14,7 +14,7 @@ When I was writing SCM in 2020, I had the idea of building a universal library f
 
 `git submodule update --init -- <specific relative path to submodule>`
 
-I'm going to write a vscode plugin that uses the interface to select the submodule that needs to be loaded and saves a local configuration file that describes the submodules on which the project depends
+The above sentence will do load the submodule I need, but that not convenient enough. I'm going to write a vscode extension available to choose needed submodules, just like some package manager
 
 **一个vscode插件**
 
