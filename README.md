@@ -26,3 +26,7 @@ The above sentence will do load the submodule I need, but that not convenient en
 
 ----
 
+To start editing with Visual Studio Code, use the following commands:
+
+     cd submodule-helper
+     code-insiders .
