@@ -79,7 +79,7 @@ function analyzeJsonObj(obj) {
                                 }
                                 const cp = require('child_process');
                                 console.log("running cmd:", 'git submodule add -f ' + curRepoInfo.git + " " + curPath + rename);
-                                yield cp.exec('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename, { env: Object.assign(Object.assign({}, process.env), { ELECTRON_RUN_AS_NODE: '' }), cwd: wsPath }, (err, stdout) => {
+                                yield cp.execSync('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename, { env: Object.assign(Object.assign({}, process.env), { ELECTRON_RUN_AS_NODE: '' }), cwd: wsPath }, (err, stdout) => {
                                     console.log('result:', err, stdout);
                                     if (err) {
                                         notify(err);
@@ -109,7 +109,9 @@ function analyzeJsonObj(obj) {
             }
             // for (let i = 0; i < deinitRepos.length; i++) {
             console.log("deinitRepos", deinitRepos.length);
-            deUseRepo(deinitRepos, 0);
+            if (deinitRepos.length > 0) {
+                deUseRepo(deinitRepos, 0);
+            }
             // }
         }
         else {
@@ -143,22 +145,27 @@ function deUseRepo(deinitRepos, index) {
         }
         //deinit
         const cp = require('child_process');
+        cp.execSync('git submodule deinit -f ' + totalPath, { env: Object.assign(Object.assign({}, process.env), { ELECTRON_RUN_AS_NODE: '' }), cwd: wsPath });
+        fh.delUriRF(vscode.Uri.file(wsPath + "/.git/modules/" + totalPath));
+        var d = new Date();
+        cp.execSync('powershell Rename-Item .git/modules/' + totalPath + " " + d.getTime(), { env: Object.assign(Object.assign({}, process.env), { ELECTRON_RUN_AS_NODE: '' }), cwd: wsPath });
+        fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath));
         // console.log("running cmd:", 'git submodule deinit -f ' + curRepoInfo.git + " " + curPath + rename)
-        yield cp.exec('git submodule deinit -f ' + totalPath, { env: Object.assign(Object.assign({}, process.env), { ELECTRON_RUN_AS_NODE: '' }), cwd: wsPath }, (err, stdout) => {
-            console.log('result:', err, stdout);
-            if (err) {
-                notify(err);
-            }
-            index++;
-            if (index < deinitRepos.length) {
-                deUseRepo(deinitRepos, index);
-            }
-            else {
-                setTimeout(() => {
-                    deleteFolder(deinitRepos, 0);
-                }, 500);
-            }
-        });
+        // await cp.exec('git submodule deinit -f ' + totalPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
+        // 	console.log('result:', err, stdout);
+        // 	if (err) {
+        // 		notify(err)
+        // 	}
+        index++;
+        if (index < deinitRepos.length) {
+            deUseRepo(deinitRepos, index);
+        }
+        //  else {
+        // 		setTimeout(() => {
+        // 			deleteFolder(deinitRepos, 0)
+        // 		}, 500)
+        // 	}
+        // });
         // //删除.gitmodules中的内容
         // const uri = vscode.Uri.file(wsPath + "/.gitmodules");
         // await deleteInModuleFile(uri, totalPath)
@@ -207,18 +214,6 @@ function deleteFolder(deinitRepos, index) {
         }
         else {
             console.log("delete ", totalPath);
-        }
-        index++;
-        if (index < deinitRepos.length) {
-            deleteFolder(deinitRepos, index);
-        }
-        else {
-            cp.exec('git add .', { env: Object.assign(Object.assign({}, process.env), { ELECTRON_RUN_AS_NODE: '' }), cwd: wsPath }, (err, stdout) => {
-                if (err) {
-                    console.log(err);
-                    notify(err);
-                }
-            });
         }
     });
 }

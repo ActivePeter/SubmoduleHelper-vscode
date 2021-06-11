@@ -3,7 +3,7 @@
 	"publisher": "pa",
 	"displayName": "submodule_helper",
 	"description": "manage project's submodules easily",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"engines": {
 		"vscode": "^1.57.0"
 	},
@@ -18,7 +18,7 @@
 		"commands": [
 			{
 				"command": "submodule-helper.helloWorld",
-				"title": "SubHelper: Hello World"
+				"title": "SubHelper: 更新子模块\r\n"
 			}
 		]
 	},
