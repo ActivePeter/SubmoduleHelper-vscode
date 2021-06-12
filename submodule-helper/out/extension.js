@@ -63,8 +63,10 @@ function analyzeJsonObj(obj) {
         if (!terminal) {
             terminal = vscode.window.createTerminal("SubHelper");
         }
+        terminal.show();
         if (obj.root_folder && obj.submodules_structure) {
             let deinitRepos = [];
+            let reloadRepos = [];
             for (var key in obj.submodules_structure) {
                 let curPath = obj.root_folder + key;
                 if (curPath[curPath.length - 1] != '/') {
@@ -89,8 +91,16 @@ function analyzeJsonObj(obj) {
                                 }
                                 const cp = require('child_process');
                                 console.log("running cmd:", 'git submodule add -f ' + curRepoInfo.git + " " + curPath + rename);
-                                terminal.show();
-                                terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename);
+                                let repoNoChange = yield checkInModuleFile(curPath + rename, curRepoInfo.git);
+                                if (repoNoChange) {
+                                    terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename);
+                                    console.log("reponochange", curPath + rename);
+                                }
+                                else {
+                                    deinitRepos.push([curPath, curRepoInfo]);
+                                    reloadRepos.push([curPath + rename, curRepoInfo]);
+                                    console.log("repochange", curPath + rename, curRepoInfo.git);
+                                }
                                 // cp.execSync('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
                                 // 	console.log('result:', err, stdout);
                                 // 	if (err) {
@@ -132,6 +142,11 @@ function analyzeJsonObj(obj) {
                 }
             }
             terminal.sendText('git add .');
+            if (reloadRepos.length > 0) {
+                for (let i = 0; i < reloadRepos.length; i++) {
+                    terminal.sendText('git submodule add -f ' + reloadRepos[i][1].git + " " + reloadRepos[i][0]);
+                }
+            }
             // terminal.sendText('git submodule update --init')
             // }
         }
@@ -174,7 +189,8 @@ function deUseRepo(deinitRepos, index, cmds) {
         // terminal.sendText
         cmds.push('Rename-Item .git/modules/' + totalPath + " " + d.getTime());
         // cp.execSync('powershell Rename-Item .git/modules/' + totalPath + " " + d.getTime(), { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath });
-        yield fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath), cmds);
+        // await fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath), cmds)
+        cmds.push('del ' + wsPath + "/" + totalPath + ' -recurse');
         // console.log("running cmd:", 'git submodule deinit -f ' + curRepoInfo.git + " " + curPath + rename)
         // await cp.exec('git submodule deinit -f ' + totalPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
         // 	console.log('result:', err, stdout);
@@ -242,21 +258,33 @@ function deleteFolder(deinitRepos, index) {
         }
     });
 }
-function deleteInModuleFile(uri, totalPath) {
+function checkInModuleFile(totalPath, repoUri) {
     return __awaiter(this, void 0, void 0, function* () {
+        const uri = vscode.Uri.file(wsPath + "/.gitmodules");
         let f1 = yield fh.readFile(uri);
+        if (totalPath[0] == '.') {
+            totalPath = totalPath.substring(1);
+        }
+        if (totalPath[0] == '/') {
+            totalPath = totalPath.substring(1);
+        }
         for (let i = 0; i < f1.lineCount; i++) {
+            console.log("repo line", f1.lineAt(i).text);
+            console.log("repo line+2", f1.lineAt(i + 2).text);
+            console.log(totalPath, repoUri);
+            console.log("\r\n\r\n");
             if (f1.lineAt(i).text.indexOf('"' + totalPath + '"') > -1) {
-                let firstLine = f1.lineAt(i);
-                let lastLine = f1.lineAt(i + 2);
-                let wsedit = new vscode.WorkspaceEdit();
-                var textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
-                wsedit = new vscode.WorkspaceEdit();
-                wsedit.get(uri);
-                wsedit.delete(uri, textRange);
-                yield vscode.workspace.applyEdit(wsedit);
-                // vscode.window.showTextDocument(uri);
-                yield f1.save();
+                return f1.lineAt(i + 2).text.indexOf(repoUri) > -1;
+                // let firstLine = f1.lineAt(i)
+                // let lastLine = f1.lineAt(i + 2)
+                // let wsedit = new vscode.WorkspaceEdit();
+                // var textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
+                // wsedit = new vscode.WorkspaceEdit();
+                // wsedit.get(uri)
+                // wsedit.delete(uri, textRange)
+                // await vscode.workspace.applyEdit(wsedit)
+                // // vscode.window.showTextDocument(uri);
+                // await f1.save()
                 // vscode.window.showInformationMessage('请按照模板编辑，并且移除模板内容');
             }
         }
