@@ -36,6 +36,16 @@ async function analyzeJson(text: string) {
 		vscode.window.showInformationMessage('出错了，文件不是合理的json格式');
 	}
 }
+function getStandardPath(path: string) {
+	if (path[0] == '.') {
+		path = path.substring(1)
+	}
+	if (path[0] == '/') {
+		path = path.substring(1)
+	}
+	return path
+
+}
 //3 分析解析出的obj
 async function analyzeJsonObj(obj: any) {
 	let terminal = null
@@ -54,6 +64,7 @@ async function analyzeJsonObj(obj: any) {
 
 	terminal.show()
 	if (obj.root_folder && obj.submodules_structure) {
+		let olds = await getOldModulesList()
 		let deinitRepos = []
 		let reloadRepos = []
 		for (var key in obj.submodules_structure) {
@@ -65,63 +76,73 @@ async function analyzeJsonObj(obj: any) {
 			console.log("curPath", curPath)
 			for (let i = 0; i < repoArr.length; i++) {
 				let curRepoInfo = repoArr[i]
-				if (curRepoInfo.used) {
-					if (curRepoInfo.git) {
-						let rename: string = ""
-						let git: string = curRepoInfo.git
-						let split1 = git.split("/")
 
-						let split2 = split1[split1.length - 1].split(".git")
-						if (split2 && split2.length > 0) {
-							if (curRepoInfo.rename) {
-								rename = curRepoInfo.rename
-							} else {
-								rename = split2[0]
-							}
+				// if (curRepoInfo.used) {
+				if (curRepoInfo.git) {
+					let rename: string = ""
+					let git: string = curRepoInfo.git
+					let split1 = git.split("/")
+
+					let split2 = split1[split1.length - 1].split(".git")
+					if (split2 && split2.length > 0) {
+						if (curRepoInfo.rename) {
+							rename = curRepoInfo.rename
+						} else {
+							rename = split2[0]
+						}
+						if (curRepoInfo.used) {
 							const cp = require('child_process')
 							console.log("running cmd:", 'git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
+							/**
+							 * 将当前遍历到的从olds中删除，
+							 * 最后olds剩下的就是需要删掉的仓库，
+							 *  */
+							olds = deleteOneIfHas_thenReturn(olds, getStandardPath(curPath + rename))
 
+							//////
 							let repoNoChange = await checkInModuleFile(curPath + rename, curRepoInfo.git)
-							if (repoNoChange) {
+							// if (repoNoChange == -1) {//新加入
+							// 	terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
+							// 	console.log("reponochange", curPath + rename)
+							// }
+							// else
+							if (repoNoChange == 1) {//git地址变更
+								deinitRepos.push(getStandardPath(curPath + rename))
+								reloadRepos.push([curPath + rename, curRepoInfo])
+								console.log("repochange", curPath + rename, curRepoInfo.git)
+							} else {
 								terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
 								console.log("reponochange", curPath + rename)
 							}
-							else {
-								deinitRepos.push([curPath, curRepoInfo])
-								reloadRepos.push([curPath + rename, curRepoInfo])
-								console.log("repochange", curPath + rename, curRepoInfo.git)
-							}
-							// cp.execSync('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
-							// 	console.log('result:', err, stdout);
-							// 	if (err) {
-							// 		notify(err)
-							// 	}
-							// });
-							// let err = cp.execSync('git submodule update --init --recursive', { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath })
-
-							// await cp.exec('dir', { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
-							// 	console.log('result:', err, stdout);
-							// 	if (err) {
-							// 		notify(err)
-							// 	}
-							// });
-
-						} else {
-							notify("存在一个仓库名称无法正常读取，请检查 git 项和 rename 项")
+						} else if (curRepoInfo.used === 0) {
+							// deUseRepo(curPath, curRepoInfo)
+							// deinitRepos.push([curPath, curRepoInfo])
+							deinitRepos.push(getStandardPath(curPath + rename))
+							console.log("deinitRepos", deinitRepos.length)
 						}
-
+						// cp.execSync('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
+						// 	console.log('result:', err, stdout);
+						// 	if (err) {
+						// 		notify(err)
+						// 	}
+						// });
 
 					} else {
-						notify("存在一个仓库信息描述不全, 请检查 git 项")
+						notify("存在一个仓库名称无法正常读取，请检查 git 项和 rename 项")
 					}
 
-				} else if (curRepoInfo.used === 0) {
-					// deUseRepo(curPath, curRepoInfo)
-					deinitRepos.push([curPath, curRepoInfo])
-					console.log("deinitRepos", deinitRepos.length)
+
+				} else {
+					notify("存在一个仓库信息描述不全, 请检查 git 项")
 				}
 
+				// 
+
 			}
+		}
+		for (let i = 0; i < olds.length; i++) {
+			deinitRepos.push(olds[i])
+			console.log("push old", olds[i])
 		}
 		terminal.sendText('git submodule update --init')
 		// for (let i = 0; i < deinitRepos.length; i++) {
@@ -147,32 +168,42 @@ async function analyzeJsonObj(obj: any) {
 		notify_fileIsNotIntact()
 	}
 }
+function deleteOneIfHas_thenReturn(olds: string[], stuff: string) {
+	let newList: string[] = []
+	for (let i = 0; i < olds.length; i++) {
+		// if (olds[i].indexOf(stuff) < 0) {
+		if (olds[i] != (stuff)) {
+			newList.push(olds[i])
+		}
+	}
+	return newList
+}
 async function deUseRepo(deinitRepos: any, index: number, cmds: Array<string>) {
 
 
-	console.log("deinit:", index)
-	let curPath = deinitRepos[index][0]
-	let repoInfo = deinitRepos[index][1]
+	// console.log("deinit:", index)
+	// let curPath = deinitRepos[index][0]
+	// let repoInfo = deinitRepos[index][1]
 
-	let rename: string = ""
-	let git: string = repoInfo.git
-	let split1 = git.split("/")
+	// let rename: string = ""
+	// let git: string = repoInfo.git
+	// let split1 = git.split("/")
 
-	let split2 = split1[split1.length - 1].split(".git")
-	if (split2 && split2.length > 0) {
-		if (repoInfo.rename) {
-			rename = repoInfo.rename
-		} else {
-			rename = split2[0]
-		}
-	}
-	let totalPath = curPath + rename
-	if (totalPath[0] == '.') {
-		totalPath = totalPath.substring(1)
-	}
-	if (totalPath[0] == '/') {
-		totalPath = totalPath.substring(1)
-	}
+	// let split2 = split1[split1.length - 1].split(".git")
+	// if (split2 && split2.length > 0) {
+	// 	if (repoInfo.rename) {
+	// 		rename = repoInfo.rename
+	// 	} else {
+	// 		rename = split2[0]
+	// 	}
+	// }
+	let totalPath = deinitRepos[index]//curPath + rename
+	// if (totalPath[0] == '.') {
+	// 	totalPath = totalPath.substring(1)
+	// }
+	// if (totalPath[0] == '/') {
+	// 	totalPath = totalPath.substring(1)
+	// }
 	//deinit
 	const cp = require('child_process')
 	cmds.push('git submodule deinit -f ' + totalPath)
@@ -188,6 +219,11 @@ async function deUseRepo(deinitRepos: any, index: number, cmds: Array<string>) {
 
 	// await fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath), cmds)
 	cmds.push('del ' + wsPath + "/" + totalPath + ' -recurse')
+
+	for (let i = 0; i < cmds.length; i++) {
+		console.log("cmd:-", i, cmds[i])
+		// terminal.sendText(cmds[i])
+	}
 	// console.log("running cmd:", 'git submodule deinit -f ' + curRepoInfo.git + " " + curPath + rename)
 	// await cp.exec('git submodule deinit -f ' + totalPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
 	// 	console.log('result:', err, stdout);
@@ -196,7 +232,7 @@ async function deUseRepo(deinitRepos: any, index: number, cmds: Array<string>) {
 	// 	}
 	index++
 	if (index < deinitRepos.length) {
-		deUseRepo(deinitRepos, index, cmds)
+		await deUseRepo(deinitRepos, index, cmds)
 	}
 	//  else {
 	// 		setTimeout(() => {
@@ -265,6 +301,22 @@ function deleteFolder(deinitRepos: any, index: number) {
 		}
 	})
 }
+async function getOldModulesList() {
+	const uri = vscode.Uri.file(wsPath + "/.gitmodules")
+	let f1 = await fh.readFile(uri)
+	let list: string[] = []
+	// f1.getText()
+	for (let i = 0; i < f1.lineCount; i++) {
+		let txt = f1.lineAt(i).text
+		if (txt.indexOf("[submodule") > -1) {
+			list.push(txt.split('"')[1])
+		}
+	}
+	return list
+}
+/**
+ * 0 完全匹配，1 地址变更，-1 新加入的sub
+ */
 async function checkInModuleFile(totalPath: string, repoUri: string) {
 	const uri = vscode.Uri.file(wsPath + "/.gitmodules")
 	let f1 = await fh.readFile(uri)
@@ -274,13 +326,23 @@ async function checkInModuleFile(totalPath: string, repoUri: string) {
 	if (totalPath[0] == '/') {
 		totalPath = totalPath.substring(1)
 	}
+	let state = -1
 	for (let i = 0; i < f1.lineCount; i++) {
-		console.log("repo line", f1.lineAt(i).text)
-		console.log("repo line+2", f1.lineAt(i + 2).text)
-		console.log(totalPath, repoUri)
-		console.log("\r\n\r\n")
+		try {
+			console.log("repo line", f1.lineAt(i).text)
+			console.log("repo line+2", f1.lineAt(i + 2).text)
+			console.log(totalPath, repoUri)
+			console.log("\r\n\r\n")
+		} catch (error) {
+
+		}
 		if (f1.lineAt(i).text.indexOf('"' + totalPath + '"') > -1) {
-			return f1.lineAt(i + 2).text.indexOf(repoUri) > -1
+			if (f1.lineAt(i + 2).text.indexOf(repoUri) > -1) {
+				state = 0//完全匹配
+			} else {
+				state = 1//git地址变更
+			}
+			return state
 			// let firstLine = f1.lineAt(i)
 			// let lastLine = f1.lineAt(i + 2)
 			// let wsedit = new vscode.WorkspaceEdit();
@@ -297,6 +359,7 @@ async function checkInModuleFile(totalPath: string, repoUri: string) {
 
 		}
 	}
+	return state
 }
 function notify_fileIsNotIntact() {
 	notify("配置文件不完整")
