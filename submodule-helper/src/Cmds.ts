@@ -12,6 +12,72 @@ function Uint8ArrayToString(fileData: Uint8Array) {
     return dataString
 
 }
+
+export function shellWithCallback(cmd: string, callback: any) {
+
+}
+
+let cmds: string[] = []
+let callbacks: any = {}
+export function addShell(cmd: string) {
+    cmds.push(cmd)
+}
+
+export function addCallback(callback: any) {
+    callbacks[cmds.length - 1] = callback
+}
+export function doAndclearShell(index: number) {
+    console.log("doAndclearShell", index, ", cmds", cmds.length)
+    if (!hasChannel) {
+        hasChannel = true
+        channel = vscode.window.createOutputChannel("SubHelper")
+
+    }
+    channel.show()
+
+
+    // for (let i = 0; i < cmds.length; i++) {
+    // shell(cmds[i])
+    ///////////////////////////////////////////////////////////////
+    const cp = require('child_process')
+    channel.appendLine("run cmd: " + cmds[index])
+    try {
+        cp.exec('powershell ' + cmds[index], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: main.wsPath }, (err: any, stdout: any) => {
+            console.log("_doAndclearShell", index, ", cmds", cmds.length)
+            if (callbacks[index]) {
+                callbacks[index]()
+            }
+            // if (err) {
+            //     console.log(err)
+            //     // notify(err)
+            // } else {
+            //     // console.log("delete ", totalPath)
+            // }
+            index++
+            if (index < cmds.length) {
+
+                doAndclearShell(index)
+            } else {
+                //end
+                channel.appendLine(" ")
+                channel.appendLine("--- end ---")
+                channel.appendLine(" ")
+                cmds = []
+                callbacks = {}
+            }
+        })
+    } catch (error) {
+        console.log("__doAndclearShell", index, ", cmds", cmds.length)
+        index++
+        if (index < cmds.length) {
+            doAndclearShell(index)
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////
+    // }
+}
+
 export function shell(cmd: string) {
     if (!hasChannel) {
         hasChannel = true

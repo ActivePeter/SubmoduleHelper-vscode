@@ -123,7 +123,7 @@ function analyzeJsonObj(obj) {
                                     console.log("repochange", curPath + rename, curRepoInfo.git);
                                 }
                                 else {
-                                    CMD.shell('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename);
+                                    CMD.addShell('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename);
                                     // terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
                                     console.log("reponochange", curPath + rename);
                                 }
@@ -156,7 +156,7 @@ function analyzeJsonObj(obj) {
                 console.log("push old", olds[i]);
             }
             // terminal.sendText
-            CMD.shell('git submodule update --init');
+            CMD.addShell('git submodule update --init');
             // for (let i = 0; i < deinitRepos.length; i++) {
             console.log("deinitRepos", deinitRepos.length);
             if (deinitRepos.length > 0) {
@@ -165,22 +165,26 @@ function analyzeJsonObj(obj) {
                 for (let i = 0; i < cmds.length; i++) {
                     console.log("cmd:", i, cmds[i]);
                     // terminal.sendText
-                    CMD.shell(cmds[i]);
+                    CMD.addShell(cmds[i]);
                 }
             }
             // terminal.sendText
-            CMD.shell('git add .');
+            CMD.addShell('git add .');
             for (let i = 0; i < olds.length; i++) {
                 console.log("remove old", olds[i]);
-                RemoveInModuleFile(olds[i]);
+                // RemoveInModuleFile(olds[i])
+                CMD.addCallback(() => {
+                    RemoveInModuleFile(olds[i]);
+                });
             }
-            CMD.shell('git add .');
+            CMD.addShell('git add .');
             if (reloadRepos.length > 0) {
                 for (let i = 0; i < reloadRepos.length; i++) {
                     // terminal.sendText
-                    CMD.shell('git submodule add -f ' + reloadRepos[i][1].git + " " + reloadRepos[i][0]);
+                    CMD.addShell('git submodule add -f ' + reloadRepos[i][1].git + " " + reloadRepos[i][0]);
                 }
             }
+            CMD.doAndclearShell(0);
             notify("完成更新");
             // terminal.sendText('git submodule update --init')
             // }

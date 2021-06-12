@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.shell = void 0;
+exports.shell = exports.doAndclearShell = exports.addCallback = exports.addShell = exports.shellWithCallback = void 0;
 const vscode = require("vscode");
 const main = require("./extension");
 let hasChannel = false;
@@ -12,6 +12,68 @@ function Uint8ArrayToString(fileData) {
     }
     return dataString;
 }
+function shellWithCallback(cmd, callback) {
+}
+exports.shellWithCallback = shellWithCallback;
+let cmds = [];
+let callbacks = {};
+function addShell(cmd) {
+    cmds.push(cmd);
+}
+exports.addShell = addShell;
+function addCallback(callback) {
+    callbacks[cmds.length - 1] = callback;
+}
+exports.addCallback = addCallback;
+function doAndclearShell(index) {
+    console.log("doAndclearShell", index, ", cmds", cmds.length);
+    if (!hasChannel) {
+        hasChannel = true;
+        channel = vscode.window.createOutputChannel("SubHelper");
+    }
+    channel.show();
+    // for (let i = 0; i < cmds.length; i++) {
+    // shell(cmds[i])
+    ///////////////////////////////////////////////////////////////
+    const cp = require('child_process');
+    channel.appendLine("run cmd: " + cmds[index]);
+    try {
+        cp.exec('powershell ' + cmds[index], { env: Object.assign(Object.assign({}, process.env), { ELECTRON_RUN_AS_NODE: '' }), cwd: main.wsPath }, (err, stdout) => {
+            console.log("_doAndclearShell", index, ", cmds", cmds.length);
+            if (callbacks[index]) {
+                callbacks[index]();
+            }
+            // if (err) {
+            //     console.log(err)
+            //     // notify(err)
+            // } else {
+            //     // console.log("delete ", totalPath)
+            // }
+            index++;
+            if (index < cmds.length) {
+                doAndclearShell(index);
+            }
+            else {
+                //end
+                channel.appendLine(" ");
+                channel.appendLine("--- end ---");
+                channel.appendLine(" ");
+                cmds = [];
+                callbacks = {};
+            }
+        });
+    }
+    catch (error) {
+        console.log("__doAndclearShell", index, ", cmds", cmds.length);
+        index++;
+        if (index < cmds.length) {
+            doAndclearShell(index);
+        }
+    }
+    ////////////////////////////////////////////////////////////////
+    // }
+}
+exports.doAndclearShell = doAndclearShell;
 function shell(cmd) {
     if (!hasChannel) {
         hasChannel = true;
