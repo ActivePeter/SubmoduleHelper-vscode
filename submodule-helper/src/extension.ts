@@ -2,9 +2,10 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as fh from './FileHelper';
+import * as CMD from './Cmds'
 const _appName = "SubHelper"
 const jsonName = "submodule_helper.json"
-let wsPath = ""
+export let wsPath = ""
 //1.找json文件
 async function findJson(uristr: string) {
 	const uri = vscode.Uri.file(uristr);
@@ -48,22 +49,24 @@ function getStandardPath(path: string) {
 }
 //3 分析解析出的obj
 async function analyzeJsonObj(obj: any) {
-	let terminal = null
-	for (let i = 0; i < vscode.window.terminals.length; i++) {
-		if (vscode.window.terminals[i].name == "SubHelper") {
+	// let terminal = null
+	// for (let i = 0; i < vscode.window.terminals.length; i++) {
+	// 	if (vscode.window.terminals[i].name == "SubHelper") {
 
-			terminal = vscode.window.terminals[i]
-			break;
-		}
+	// 		terminal = vscode.window.terminals[i]
+	// 		break;
+	// 	}
 
 
-	}
-	if (!terminal) {
-		terminal = vscode.window.createTerminal("SubHelper")
-	}
+	// }
+	// if (!terminal) {
+	// 	terminal = vscode.window.createTerminal("SubHelper")
+	// }
 
-	terminal.show()
+	// terminal.show()
 	if (obj.root_folder && obj.submodules_structure) {
+		// vscode.window.showInformationMessage('SubHelper 开始更新');
+		notify("开始更新")
 		let olds = await getOldModulesList()
 		let deinitRepos = []
 		let reloadRepos = []
@@ -111,7 +114,8 @@ async function analyzeJsonObj(obj: any) {
 								reloadRepos.push([curPath + rename, curRepoInfo])
 								console.log("repochange", curPath + rename, curRepoInfo.git)
 							} else {
-								terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
+								CMD.shell('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
+								// terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
 								console.log("reponochange", curPath + rename)
 							}
 						} else if (curRepoInfo.used === 0) {
@@ -144,7 +148,8 @@ async function analyzeJsonObj(obj: any) {
 			deinitRepos.push(olds[i])
 			console.log("push old", olds[i])
 		}
-		terminal.sendText('git submodule update --init')
+		// terminal.sendText
+		CMD.shell('git submodule update --init')
 		// for (let i = 0; i < deinitRepos.length; i++) {
 		console.log("deinitRepos", deinitRepos.length)
 		if (deinitRepos.length > 0) {
@@ -153,15 +158,24 @@ async function analyzeJsonObj(obj: any) {
 
 			for (let i = 0; i < cmds.length; i++) {
 				console.log("cmd:", i, cmds[i])
-				terminal.sendText(cmds[i])
+				// terminal.sendText
+				CMD.shell(cmds[i])
 			}
 		}
-		terminal.sendText('git add .')
+		// terminal.sendText
+		CMD.shell('git add .')
+		for (let i = 0; i < olds.length; i++) {
+			console.log("remove old", olds[i])
+			RemoveInModuleFile(olds[i])
+		}
+		CMD.shell('git add .')
 		if (reloadRepos.length > 0) {
 			for (let i = 0; i < reloadRepos.length; i++) {
-				terminal.sendText('git submodule add -f ' + reloadRepos[i][1].git + " " + reloadRepos[i][0])
+				// terminal.sendText
+				CMD.shell('git submodule add -f ' + reloadRepos[i][1].git + " " + reloadRepos[i][0])
 			}
 		}
+		notify("完成更新")
 		// terminal.sendText('git submodule update --init')
 		// }
 	} else {
@@ -317,6 +331,46 @@ async function getOldModulesList() {
 /**
  * 0 完全匹配，1 地址变更，-1 新加入的sub
  */
+async function RemoveInModuleFile(totalPath: string) {
+	const uri = vscode.Uri.file(wsPath + "/.gitmodules")
+	let f1 = await fh.readFile(uri)
+	if (totalPath[0] == '.') {
+		totalPath = totalPath.substring(1)
+	}
+	if (totalPath[0] == '/') {
+		totalPath = totalPath.substring(1)
+	}
+	let state = -1
+	for (let i = 0; i < f1.lineCount; i++) {
+		// try {
+		// 	console.log("repo line", f1.lineAt(i).text)
+		// 	console.log("repo line+2", f1.lineAt(i + 2).text)
+		// 	console.log(totalPath, repoUri)
+		// 	console.log("\r\n\r\n")
+		// } catch (error) {
+
+		// }
+		if (f1.lineAt(i).text.indexOf('"' + totalPath + '"') > -1) {
+			let firstLine = f1.lineAt(i)
+			let lastLine = f1.lineAt(i + 2)
+			let wsedit = new vscode.WorkspaceEdit();
+			var textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
+			wsedit = new vscode.WorkspaceEdit();
+			wsedit.get(uri)
+			wsedit.delete(uri, textRange)
+			await vscode.workspace.applyEdit(wsedit)
+			// vscode.window.showTextDocument(uri);
+			await f1.save()
+
+
+
+		}
+	}
+	return state
+}
+/**
+ * 0 完全匹配，1 地址变更，-1 新加入的sub
+ */
 async function checkInModuleFile(totalPath: string, repoUri: string) {
 	const uri = vscode.Uri.file(wsPath + "/.gitmodules")
 	let f1 = await fh.readFile(uri)
@@ -364,7 +418,7 @@ async function checkInModuleFile(totalPath: string, repoUri: string) {
 function notify_fileIsNotIntact() {
 	notify("配置文件不完整")
 }
-function notify(text: string) {
+export function notify(text: string) {
 	vscode.window.showInformationMessage(_appName + ": " + text)
 }
 // this method is called when your extension is activated

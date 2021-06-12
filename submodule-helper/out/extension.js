@@ -9,14 +9,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deactivate = exports.activate = void 0;
+exports.deactivate = exports.activate = exports.notify = exports.wsPath = void 0;
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require("vscode");
 const fh = require("./FileHelper");
+const CMD = require("./Cmds");
 const _appName = "SubHelper";
 const jsonName = "submodule_helper.json";
-let wsPath = "";
+exports.wsPath = "";
 //1.找json文件
 function findJson(uristr) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -62,18 +63,20 @@ function getStandardPath(path) {
 //3 分析解析出的obj
 function analyzeJsonObj(obj) {
     return __awaiter(this, void 0, void 0, function* () {
-        let terminal = null;
-        for (let i = 0; i < vscode.window.terminals.length; i++) {
-            if (vscode.window.terminals[i].name == "SubHelper") {
-                terminal = vscode.window.terminals[i];
-                break;
-            }
-        }
-        if (!terminal) {
-            terminal = vscode.window.createTerminal("SubHelper");
-        }
-        terminal.show();
+        // let terminal = null
+        // for (let i = 0; i < vscode.window.terminals.length; i++) {
+        // 	if (vscode.window.terminals[i].name == "SubHelper") {
+        // 		terminal = vscode.window.terminals[i]
+        // 		break;
+        // 	}
+        // }
+        // if (!terminal) {
+        // 	terminal = vscode.window.createTerminal("SubHelper")
+        // }
+        // terminal.show()
         if (obj.root_folder && obj.submodules_structure) {
+            // vscode.window.showInformationMessage('SubHelper 开始更新');
+            notify("开始更新");
             let olds = yield getOldModulesList();
             let deinitRepos = [];
             let reloadRepos = [];
@@ -120,7 +123,8 @@ function analyzeJsonObj(obj) {
                                     console.log("repochange", curPath + rename, curRepoInfo.git);
                                 }
                                 else {
-                                    terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename);
+                                    CMD.shell('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename);
+                                    // terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
                                     console.log("reponochange", curPath + rename);
                                 }
                             }
@@ -151,7 +155,8 @@ function analyzeJsonObj(obj) {
                 deinitRepos.push(olds[i]);
                 console.log("push old", olds[i]);
             }
-            terminal.sendText('git submodule update --init');
+            // terminal.sendText
+            CMD.shell('git submodule update --init');
             // for (let i = 0; i < deinitRepos.length; i++) {
             console.log("deinitRepos", deinitRepos.length);
             if (deinitRepos.length > 0) {
@@ -159,15 +164,24 @@ function analyzeJsonObj(obj) {
                 yield deUseRepo(deinitRepos, 0, cmds);
                 for (let i = 0; i < cmds.length; i++) {
                     console.log("cmd:", i, cmds[i]);
-                    terminal.sendText(cmds[i]);
+                    // terminal.sendText
+                    CMD.shell(cmds[i]);
                 }
             }
-            terminal.sendText('git add .');
+            // terminal.sendText
+            CMD.shell('git add .');
+            for (let i = 0; i < olds.length; i++) {
+                console.log("remove old", olds[i]);
+                RemoveInModuleFile(olds[i]);
+            }
+            CMD.shell('git add .');
             if (reloadRepos.length > 0) {
                 for (let i = 0; i < reloadRepos.length; i++) {
-                    terminal.sendText('git submodule add -f ' + reloadRepos[i][1].git + " " + reloadRepos[i][0]);
+                    // terminal.sendText
+                    CMD.shell('git submodule add -f ' + reloadRepos[i][1].git + " " + reloadRepos[i][0]);
                 }
             }
+            notify("完成更新");
             // terminal.sendText('git submodule update --init')
             // }
         }
@@ -214,13 +228,13 @@ function deUseRepo(deinitRepos, index, cmds) {
         cmds.push('git submodule deinit -f ' + totalPath);
         // terminal.sendText('git submodule deinit -f ' + totalPath)
         // cp.execSync('git submodule deinit -f ' + totalPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath });
-        yield fh.delUriRF(vscode.Uri.file(wsPath + "/.git/modules/" + totalPath), cmds);
+        yield fh.delUriRF(vscode.Uri.file(exports.wsPath + "/.git/modules/" + totalPath), cmds);
         let d = new Date();
         // terminal.sendText
         cmds.push('Rename-Item .git/modules/' + totalPath + " " + d.getTime());
         // cp.execSync('powershell Rename-Item .git/modules/' + totalPath + " " + d.getTime(), { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath });
         // await fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath), cmds)
-        cmds.push('del ' + wsPath + "/" + totalPath + ' -recurse');
+        cmds.push('del ' + exports.wsPath + "/" + totalPath + ' -recurse');
         for (let i = 0; i < cmds.length; i++) {
             console.log("cmd:-", i, cmds[i]);
             // terminal.sendText(cmds[i])
@@ -282,7 +296,7 @@ function deleteFolder(deinitRepos, index) {
     // await vscode.workspace.fs.delete(uri3)
     // fh.delUriRF(uri3)
     //删除.git/module中的文件夹
-    cp.exec('powershell del ' + totalPath, { env: Object.assign(Object.assign({}, process.env), { ELECTRON_RUN_AS_NODE: '' }), cwd: wsPath }, (err, stdout) => {
+    cp.exec('powershell del ' + totalPath, { env: Object.assign(Object.assign({}, process.env), { ELECTRON_RUN_AS_NODE: '' }), cwd: exports.wsPath }, (err, stdout) => {
         if (err) {
             console.log(err);
             notify(err);
@@ -294,7 +308,7 @@ function deleteFolder(deinitRepos, index) {
 }
 function getOldModulesList() {
     return __awaiter(this, void 0, void 0, function* () {
-        const uri = vscode.Uri.file(wsPath + "/.gitmodules");
+        const uri = vscode.Uri.file(exports.wsPath + "/.gitmodules");
         let f1 = yield fh.readFile(uri);
         let list = [];
         // f1.getText()
@@ -310,9 +324,47 @@ function getOldModulesList() {
 /**
  * 0 完全匹配，1 地址变更，-1 新加入的sub
  */
+function RemoveInModuleFile(totalPath) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const uri = vscode.Uri.file(exports.wsPath + "/.gitmodules");
+        let f1 = yield fh.readFile(uri);
+        if (totalPath[0] == '.') {
+            totalPath = totalPath.substring(1);
+        }
+        if (totalPath[0] == '/') {
+            totalPath = totalPath.substring(1);
+        }
+        let state = -1;
+        for (let i = 0; i < f1.lineCount; i++) {
+            // try {
+            // 	console.log("repo line", f1.lineAt(i).text)
+            // 	console.log("repo line+2", f1.lineAt(i + 2).text)
+            // 	console.log(totalPath, repoUri)
+            // 	console.log("\r\n\r\n")
+            // } catch (error) {
+            // }
+            if (f1.lineAt(i).text.indexOf('"' + totalPath + '"') > -1) {
+                let firstLine = f1.lineAt(i);
+                let lastLine = f1.lineAt(i + 2);
+                let wsedit = new vscode.WorkspaceEdit();
+                var textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
+                wsedit = new vscode.WorkspaceEdit();
+                wsedit.get(uri);
+                wsedit.delete(uri, textRange);
+                yield vscode.workspace.applyEdit(wsedit);
+                // vscode.window.showTextDocument(uri);
+                yield f1.save();
+            }
+        }
+        return state;
+    });
+}
+/**
+ * 0 完全匹配，1 地址变更，-1 新加入的sub
+ */
 function checkInModuleFile(totalPath, repoUri) {
     return __awaiter(this, void 0, void 0, function* () {
-        const uri = vscode.Uri.file(wsPath + "/.gitmodules");
+        const uri = vscode.Uri.file(exports.wsPath + "/.gitmodules");
         let f1 = yield fh.readFile(uri);
         if (totalPath[0] == '.') {
             totalPath = totalPath.substring(1);
@@ -360,6 +412,7 @@ function notify_fileIsNotIntact() {
 function notify(text) {
     vscode.window.showInformationMessage(_appName + ": " + text);
 }
+exports.notify = notify;
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 function activate(context) {
@@ -375,9 +428,9 @@ function activate(context) {
         // let control = vscode.scm.createSourceControl("control", "control test")
         // vscode.window.showInformationMessage('Hello World from submodule_helper!');
         if (vscode.workspace.workspaceFolders) {
-            wsPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-            console.log("项目目录:", wsPath);
-            findJson(wsPath);
+            exports.wsPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+            console.log("项目目录:", exports.wsPath);
+            findJson(exports.wsPath);
             // const cp = require('child_process')
             // cp.exec('git', { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' } }, (err: any, stdout: any) => {
             // 	console.log('result', err, stdout);
