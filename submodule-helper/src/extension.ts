@@ -38,6 +38,19 @@ async function analyzeJson(text: string) {
 }
 //3 分析解析出的obj
 async function analyzeJsonObj(obj: any) {
+	let terminal = null
+	for (let i = 0; i < vscode.window.terminals.length; i++) {
+		if (vscode.window.terminals[i].name == "SubHelper") {
+
+			terminal = vscode.window.terminals[i]
+			break;
+		}
+
+
+	}
+	if (!terminal) {
+		terminal = vscode.window.createTerminal("SubHelper")
+	}
 	if (obj.root_folder && obj.submodules_structure) {
 		let deinitRepos = []
 		for (var key in obj.submodules_structure) {
@@ -64,12 +77,18 @@ async function analyzeJsonObj(obj: any) {
 							}
 							const cp = require('child_process')
 							console.log("running cmd:", 'git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
-							await cp.execSync('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
-								console.log('result:', err, stdout);
-								if (err) {
-									notify(err)
-								}
-							});
+
+							terminal.show()
+							terminal.sendText('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename)
+
+							// cp.execSync('git submodule add -f ' + curRepoInfo.git + " " + curPath + rename, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
+							// 	console.log('result:', err, stdout);
+							// 	if (err) {
+							// 		notify(err)
+							// 	}
+							// });
+							// let err = cp.execSync('git submodule update --init --recursive', { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath })
+
 							// await cp.exec('dir', { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
 							// 	console.log('result:', err, stdout);
 							// 	if (err) {
@@ -94,18 +113,29 @@ async function analyzeJsonObj(obj: any) {
 
 			}
 		}
+		terminal.sendText('git submodule update --init')
 		// for (let i = 0; i < deinitRepos.length; i++) {
 		console.log("deinitRepos", deinitRepos.length)
 		if (deinitRepos.length > 0) {
+			let cmds: Array<string> = []
+			await deUseRepo(deinitRepos, 0, cmds)
 
-			deUseRepo(deinitRepos, 0)
+			for (let i = 0; i < cmds.length; i++) {
+				console.log("cmd:", i, cmds[i])
+				terminal.sendText(cmds[i])
+			}
 		}
+		terminal.sendText('git add .')
+
+		// terminal.sendText('git submodule update --init')
 		// }
 	} else {
 		notify_fileIsNotIntact()
 	}
 }
-async function deUseRepo(deinitRepos: any, index: number) {
+async function deUseRepo(deinitRepos: any, index: number, cmds: Array<string>) {
+
+
 	console.log("deinit:", index)
 	let curPath = deinitRepos[index][0]
 	let repoInfo = deinitRepos[index][1]
@@ -131,12 +161,18 @@ async function deUseRepo(deinitRepos: any, index: number) {
 	}
 	//deinit
 	const cp = require('child_process')
-	cp.execSync('git submodule deinit -f ' + totalPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath });
-	fh.delUriRF(vscode.Uri.file(wsPath + "/.git/modules/" + totalPath))
-	var d = new Date();
-	cp.execSync('powershell Rename-Item .git/modules/' + totalPath + " " + d.getTime(), { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath });
+	cmds.push('git submodule deinit -f ' + totalPath)
+	// terminal.sendText('git submodule deinit -f ' + totalPath)
+	// cp.execSync('git submodule deinit -f ' + totalPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath });
 
-	fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath))
+	await fh.delUriRF(vscode.Uri.file(wsPath + "/.git/modules/" + totalPath), cmds)
+	let d = new Date();
+	// terminal.sendText
+	cmds.push('Rename-Item .git/modules/' + totalPath + " " + d.getTime())
+
+	// cp.execSync('powershell Rename-Item .git/modules/' + totalPath + " " + d.getTime(), { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath });
+
+	await fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath), cmds)
 	// console.log("running cmd:", 'git submodule deinit -f ' + curRepoInfo.git + " " + curPath + rename)
 	// await cp.exec('git submodule deinit -f ' + totalPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
 	// 	console.log('result:', err, stdout);
@@ -145,7 +181,7 @@ async function deUseRepo(deinitRepos: any, index: number) {
 	// 	}
 	index++
 	if (index < deinitRepos.length) {
-		deUseRepo(deinitRepos, index)
+		deUseRepo(deinitRepos, index, cmds)
 	}
 	//  else {
 	// 		setTimeout(() => {
