@@ -3,6 +3,9 @@
 import * as vscode from 'vscode';
 import * as fh from './FileHelper';
 import * as CMD from './Cmds'
+import * as fs2 from 'fs';
+import * as path2 from 'path';
+
 const _appName = "SubHelper"
 const jsonName = "submodule_helper.json"
 export let wsPath = ""
@@ -153,7 +156,7 @@ async function analyzeJsonObj(obj: any) {
 		// for (let i = 0; i < deinitRepos.length; i++) {
 		console.log("deinitRepos", deinitRepos.length)
 		if (deinitRepos.length > 0) {
-			let cmds: Array<string> = []
+			let cmds: Array<any> = []
 			await deUseRepo(deinitRepos, 0, cmds)
 
 			for (let i = 0; i < cmds.length; i++) {
@@ -179,7 +182,6 @@ async function analyzeJsonObj(obj: any) {
 			}
 		}
 		CMD.doAndclearShell(0)
-		notify("完成更新")
 		// terminal.sendText('git submodule update --init')
 		// }
 	} else {
@@ -196,7 +198,7 @@ function deleteOneIfHas_thenReturn(olds: string[], stuff: string) {
 	}
 	return newList
 }
-async function deUseRepo(deinitRepos: any, index: number, cmds: Array<string>) {
+async function deUseRepo(deinitRepos: any, index: number, cmds: Array<any>) {
 
 
 	// console.log("deinit:", index)
@@ -231,12 +233,20 @@ async function deUseRepo(deinitRepos: any, index: number, cmds: Array<string>) {
 	await fh.delUriRF(vscode.Uri.file(wsPath + "/.git/modules/" + totalPath), cmds)
 	let d = new Date();
 	// terminal.sendText
-	cmds.push('Rename-Item .git/modules/' + totalPath + " " + d.getTime())
+	// cmds.push('Rename-Item .git/modules/' + totalPath + " " + d.getTime())
+	cmds.push(() => {
+		fs2.renameSync('.git/modules/' + totalPath, d.getTime + '')
+	})
 
 	// cp.execSync('powershell Rename-Item .git/modules/' + totalPath + " " + d.getTime(), { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath });
 
-	// await fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath), cmds)
-	cmds.push('del ' + wsPath + "/" + totalPath + ' -recurse')
+	await fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath), cmds)
+	// cmds.push('del ' + wsPath + "/" + totalPath + ' -recurse')
+	// cmds.push(
+	// 	()=>{
+
+	// 	}
+	// )
 
 	for (let i = 0; i < cmds.length; i++) {
 		console.log("cmd:-", i, cmds[i])

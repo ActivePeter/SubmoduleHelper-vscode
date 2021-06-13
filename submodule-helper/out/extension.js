@@ -15,6 +15,7 @@ exports.deactivate = exports.activate = exports.notify = exports.wsPath = void 0
 const vscode = require("vscode");
 const fh = require("./FileHelper");
 const CMD = require("./Cmds");
+const fs2 = require("fs");
 const _appName = "SubHelper";
 const jsonName = "submodule_helper.json";
 exports.wsPath = "";
@@ -185,7 +186,6 @@ function analyzeJsonObj(obj) {
                 }
             }
             CMD.doAndclearShell(0);
-            notify("完成更新");
             // terminal.sendText('git submodule update --init')
             // }
         }
@@ -235,10 +235,17 @@ function deUseRepo(deinitRepos, index, cmds) {
         yield fh.delUriRF(vscode.Uri.file(exports.wsPath + "/.git/modules/" + totalPath), cmds);
         let d = new Date();
         // terminal.sendText
-        cmds.push('Rename-Item .git/modules/' + totalPath + " " + d.getTime());
+        // cmds.push('Rename-Item .git/modules/' + totalPath + " " + d.getTime())
+        cmds.push(() => {
+            fs2.renameSync('.git/modules/' + totalPath, d.getTime + '');
+        });
         // cp.execSync('powershell Rename-Item .git/modules/' + totalPath + " " + d.getTime(), { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath });
-        // await fh.delUriRF(vscode.Uri.file(wsPath + "/" + totalPath), cmds)
-        cmds.push('del ' + exports.wsPath + "/" + totalPath + ' -recurse');
+        yield fh.delUriRF(vscode.Uri.file(exports.wsPath + "/" + totalPath), cmds);
+        // cmds.push('del ' + wsPath + "/" + totalPath + ' -recurse')
+        // cmds.push(
+        // 	()=>{
+        // 	}
+        // )
         for (let i = 0; i < cmds.length; i++) {
             console.log("cmd:-", i, cmds[i]);
             // terminal.sendText(cmds[i])

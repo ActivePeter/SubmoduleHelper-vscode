@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.delUriRF = exports.connectUri = exports.readFile = void 0;
 const vscode = require("vscode");
+const fs2 = require("fs");
 function readFile(uri) {
     return __awaiter(this, void 0, void 0, function* () {
         return vscode.workspace.openTextDocument(uri);
@@ -60,7 +61,10 @@ function delUriRF(path, cmds) {
                     else {
                         console.log("del: ", uri.fsPath);
                         // terminal.sendText
-                        cmds.push('del ' + uri.fsPath + ' -recurse');
+                        // cmds.push('del ' + uri.fsPath + ' -recurse')
+                        cmds.push(() => {
+                            fs2.rmSync(uri.fsPath);
+                        });
                         // cp.execSync('powershell del ' + uri.fsPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
                         //     if (err) {
                         //         console.log(err)
@@ -77,7 +81,10 @@ function delUriRF(path, cmds) {
                 }
                 // 遍历完成之后 删除最外层的文件
                 // terminal.sendText
-                cmds.push('del ' + path.fsPath + ' -recurse');
+                // cmds.push('del ' + path.fsPath + ' -recurse')
+                cmds.push(() => {
+                    fs2.rmdirSync(path.fsPath);
+                });
                 // cp.execSync('powershell del ' + path.fsPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
                 //     if (err) {
                 //         console.log(err)

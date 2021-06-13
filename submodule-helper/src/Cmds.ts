@@ -17,9 +17,9 @@ export function shellWithCallback(cmd: string, callback: any) {
 
 }
 
-let cmds: string[] = []
+let cmds: any[] = []
 let callbacks: any = {}
-export function addShell(cmd: string) {
+export function addShell(cmd: any) {
     cmds.push(cmd)
 }
 
@@ -35,44 +35,61 @@ export function doAndclearShell(index: number) {
     }
     channel.show()
 
+    function end() {
+        index++
+        if (index < cmds.length) {
+
+            doAndclearShell(index)
+        } else {
+            //end
+            channel.appendLine(" ")
+            channel.appendLine("--- end ---")
+            channel.appendLine(" ")
+            cmds = []
+            callbacks = {}
+
+            main.notify("完成更新")
+        }
+    }
 
     // for (let i = 0; i < cmds.length; i++) {
     // shell(cmds[i])
     ///////////////////////////////////////////////////////////////
-    const cp = require('child_process')
-    channel.appendLine("run cmd: " + cmds[index])
-    try {
-        cp.exec('powershell ' + cmds[index], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: main.wsPath }, (err: any, stdout: any) => {
-            console.log("_doAndclearShell", index, ", cmds", cmds.length)
-            if (callbacks[index]) {
-                callbacks[index]()
-            }
-            // if (err) {
-            //     console.log(err)
-            //     // notify(err)
-            // } else {
-            //     // console.log("delete ", totalPath)
-            // }
-            index++
-            if (index < cmds.length) {
-
-                doAndclearShell(index)
-            } else {
-                //end
-                channel.appendLine(" ")
-                channel.appendLine("--- end ---")
-                channel.appendLine(" ")
-                cmds = []
-                callbacks = {}
-            }
-        })
-    } catch (error) {
-        console.log("__doAndclearShell", index, ", cmds", cmds.length)
-        index++
-        if (index < cmds.length) {
-            doAndclearShell(index)
+    if (typeof cmds[index] == "function") {
+        console.log("cmd is func ")
+        channel.appendLine("run cmd: " + cmds[index])
+        try {
+            cmds[index]()
+        } catch (error) {
+            console.log(error)
+        }
+        // index++
+        end()
+    } else {
+        console.log("cmd is str ")
+        const cp = require('child_process')
+        channel.appendLine("run cmd: " + cmds[index])
+        try {
+            cp.exec('powershell ' + cmds[index], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: main.wsPath }, (err: any, stdout: any) => {
+                console.log("_doAndclearShell", index, ", cmds", cmds.length)
+                if (callbacks[index]) {
+                    callbacks[index]()
+                }
+                // if (err) {
+                //     console.log(err)
+                //     // notify(err)
+                // } else {
+                //     // console.log("delete ", totalPath)
+                // }
+                end()
+            })
+        } catch (error) {
+            console.log("__doAndclearShell", index, ", cmds", cmds.length)
+            // index++
+            end()
         }
     }
+
 
     ////////////////////////////////////////////////////////////////
     // }

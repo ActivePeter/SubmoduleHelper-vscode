@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs2 from 'fs';
+import * as path2 from 'path';
 
 export async function readFile(uri: vscode.Uri) {
     return vscode.workspace.openTextDocument(uri)
@@ -10,7 +12,7 @@ export async function connectUri(uri: vscode.Uri, file: string) {
     return vscode.Uri.file(uri.path + "/" + file);
 }
 
-export async function delUriRF(path: vscode.Uri, cmds: Array<string>) {
+export async function delUriRF(path: vscode.Uri, cmds: Array<any>) {
     let fs = vscode.workspace.fs
     // 第一步读取文件内部的文件
     try {
@@ -46,7 +48,10 @@ export async function delUriRF(path: vscode.Uri, cmds: Array<string>) {
                 } else {
                     console.log("del: ", uri.fsPath)
                     // terminal.sendText
-                    cmds.push('del ' + uri.fsPath + ' -recurse')
+                    // cmds.push('del ' + uri.fsPath + ' -recurse')
+                    cmds.push(() => {
+                        fs2.rmSync(uri.fsPath)
+                    })
                     // cp.execSync('powershell del ' + uri.fsPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
                     //     if (err) {
                     //         console.log(err)
@@ -65,7 +70,10 @@ export async function delUriRF(path: vscode.Uri, cmds: Array<string>) {
 
             // 遍历完成之后 删除最外层的文件
             // terminal.sendText
-            cmds.push('del ' + path.fsPath + ' -recurse')
+            // cmds.push('del ' + path.fsPath + ' -recurse')
+            cmds.push(() => {
+                fs2.rmdirSync(path.fsPath)
+            })
             // cp.execSync('powershell del ' + path.fsPath, { env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }, cwd: wsPath }, (err: any, stdout: any) => {
             //     if (err) {
             //         console.log(err)
