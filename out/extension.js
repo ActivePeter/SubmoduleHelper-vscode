@@ -319,15 +319,19 @@ function deleteFolder(deinitRepos, index) {
 }
 function getOldModulesList() {
     return __awaiter(this, void 0, void 0, function* () {
-        const uri = vscode.Uri.file(exports.wsPath + "/.gitmodules");
-        let f1 = yield fh.readFile(uri);
         let list = [];
-        // f1.getText()
-        for (let i = 0; i < f1.lineCount; i++) {
-            let txt = f1.lineAt(i).text;
-            if (txt.indexOf("[submodule") > -1) {
-                list.push(txt.split('"')[1]);
+        const uri = vscode.Uri.file(exports.wsPath + "/.gitmodules");
+        try {
+            let f1 = yield fh.readFile(uri);
+            // f1.getText()
+            for (let i = 0; i < f1.lineCount; i++) {
+                let txt = f1.lineAt(i).text;
+                if (txt.indexOf("[submodule") > -1) {
+                    list.push(txt.split('"')[1]);
+                }
             }
+        }
+        catch (error) {
         }
         return list;
     });
@@ -376,45 +380,50 @@ function RemoveInModuleFile(totalPath) {
 function checkInModuleFile(totalPath, repoUri) {
     return __awaiter(this, void 0, void 0, function* () {
         const uri = vscode.Uri.file(exports.wsPath + "/.gitmodules");
-        let f1 = yield fh.readFile(uri);
-        if (totalPath[0] == '.') {
-            totalPath = totalPath.substring(1);
-        }
-        if (totalPath[0] == '/') {
-            totalPath = totalPath.substring(1);
-        }
-        let state = -1;
-        for (let i = 0; i < f1.lineCount; i++) {
-            try {
-                console.log("repo line", f1.lineAt(i).text);
-                console.log("repo line+2", f1.lineAt(i + 2).text);
-                console.log(totalPath, repoUri);
-                console.log("\r\n\r\n");
+        try {
+            let f1 = yield fh.readFile(uri);
+            if (totalPath[0] == '.') {
+                totalPath = totalPath.substring(1);
             }
-            catch (error) {
+            if (totalPath[0] == '/') {
+                totalPath = totalPath.substring(1);
             }
-            if (f1.lineAt(i).text.indexOf('"' + totalPath + '"') > -1) {
-                if (f1.lineAt(i + 2).text.indexOf(repoUri) > -1) {
-                    state = 0; //完全匹配
+            let state = -1;
+            for (let i = 0; i < f1.lineCount; i++) {
+                try {
+                    console.log("repo line", f1.lineAt(i).text);
+                    console.log("repo line+2", f1.lineAt(i + 2).text);
+                    console.log(totalPath, repoUri);
+                    console.log("\r\n\r\n");
                 }
-                else {
-                    state = 1; //git地址变更
+                catch (error) {
                 }
-                return state;
-                // let firstLine = f1.lineAt(i)
-                // let lastLine = f1.lineAt(i + 2)
-                // let wsedit = new vscode.WorkspaceEdit();
-                // var textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
-                // wsedit = new vscode.WorkspaceEdit();
-                // wsedit.get(uri)
-                // wsedit.delete(uri, textRange)
-                // await vscode.workspace.applyEdit(wsedit)
-                // // vscode.window.showTextDocument(uri);
-                // await f1.save()
-                // vscode.window.showInformationMessage('请按照模板编辑，并且移除模板内容');
+                if (f1.lineAt(i).text.indexOf('"' + totalPath + '"') > -1) {
+                    if (f1.lineAt(i + 2).text.indexOf(repoUri) > -1) {
+                        state = 0; //完全匹配
+                    }
+                    else {
+                        state = 1; //git地址变更
+                    }
+                    return state;
+                    // let firstLine = f1.lineAt(i)
+                    // let lastLine = f1.lineAt(i + 2)
+                    // let wsedit = new vscode.WorkspaceEdit();
+                    // var textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
+                    // wsedit = new vscode.WorkspaceEdit();
+                    // wsedit.get(uri)
+                    // wsedit.delete(uri, textRange)
+                    // await vscode.workspace.applyEdit(wsedit)
+                    // // vscode.window.showTextDocument(uri);
+                    // await f1.save()
+                    // vscode.window.showInformationMessage('请按照模板编辑，并且移除模板内容');
+                }
             }
+            return state;
         }
-        return state;
+        catch (error) {
+            return -1;
+        }
     });
 }
 function notify_fileIsNotIntact() {
