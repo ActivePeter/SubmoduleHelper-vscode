@@ -69,11 +69,21 @@ async function analyzeJsonObj(obj: any) {
 	// terminal.show()
 	if (obj.root_folder && obj.submodules_structure) {
 		// vscode.window.showInformationMessage('SubHelper 开始更新');
+
 		notify("开始更新")
 		let olds = await getOldModulesList()
 		let deinitRepos = []
 		let reloadRepos = []
 		for (var key in obj.submodules_structure) {
+			{
+				let end = obj.root_folder[obj.root_folder.length - 1]
+				if (end != "/" && end != "\\") {
+					obj.root_folder += "/"
+					if (end == "\\") {
+						obj.root_folder[obj.root_folder.length - 1] = "/"
+					}
+				}
+			}
 			let curPath = obj.root_folder + key
 			if (curPath[curPath.length - 1] != '/') {
 				curPath += "/"
